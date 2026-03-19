@@ -22,6 +22,7 @@ import br.com.sankhya.modelcore.comercial.LiberacaoSolicitada;
 import br.com.sankhya.modelcore.comercial.centrais.CACHelper;
 import br.com.sankhya.modelcore.comercial.impostos.ImpostosHelpper;
 import br.com.sankhya.modelcore.util.EntityFacadeFactory;
+import br.com.sankhya.portaria.model.helper.NotaHelper;
 import com.sankhya.util.BigDecimalUtil;
 import com.sankhya.util.TimeUtils;
 
@@ -38,14 +39,6 @@ public class Utilitarios {
 
     public static BigDecimal ONE_HUNDRED = new BigDecimal(100);
     public static MathContext mathContext = new MathContext(4, RoundingMode.HALF_EVEN);
-
-    public static void totalizar(BigDecimal nuNota) throws Exception{
-        JapeSessionContext.putProperty("br.com.sankhya.com.CentralCompraVenda", (Object)Boolean.TRUE);
-        ImpostosHelpper impHelper = new ImpostosHelpper();
-        impHelper.totalizarNota(nuNota);
-        impHelper.salvarNota();
-        recalculaImpostosNota(nuNota);
-    }
 
     public static void recalculaImpostosNota(BigDecimal nuNota) throws Exception {
         ImpostosHelpper impostohelp = new ImpostosHelpper();
@@ -125,7 +118,7 @@ public class Utilitarios {
             for(String campo : map.keySet()){
                 campo = map.get(campo).toString();
 
-                    //campo = StringUtils.formatNumeric("0000000", map.get(campo));
+                //campo = StringUtils.formatNumeric("0000000", map.get(campo));
 
                 if(null != dados) {
                     dados = dados + campo + ",";
@@ -186,6 +179,16 @@ public class Utilitarios {
         AcessoBanco acessoBanco = new AcessoBanco();
         try{
             return acessoBanco.findOne("SELECT MAX(DHALTER) AS DT FROM TGFTOP WHERE CODTIPOPER = ? ",codTipOper)
+                    .getTimestamp("DT");
+        }finally {
+            acessoBanco.closeSession();
+        }
+    }
+
+    public static Timestamp getDataMaxTipVenda(BigDecimal codTipVenda) throws Exception {
+        AcessoBanco acessoBanco = new AcessoBanco();
+        try{
+            return acessoBanco.findOne("SELECT MAX(DHALTER) AS DT FROM TGFTPV WHERE CODTIPVENDA = ? ",codTipVenda)
                     .getTimestamp("DT");
         }finally {
             acessoBanco.closeSession();
@@ -277,6 +280,18 @@ public class Utilitarios {
             creEmail.save();
         }
     }
+    public static void totalizar(BigDecimal nuNota) throws Exception{
+        JapeSessionContext.putProperty("br.com.sankhya.com.CentralCompraVenda", (Object)Boolean.TRUE);
+        ImpostosHelpper impHelper = new ImpostosHelpper();
+        impHelper.totalizarNota(nuNota);
+        impHelper.salvarNota();
+        recalculaImpostosNota(nuNota);
+    }
+
+    public static void gerarLote(BigDecimal nuNota) throws Exception {
+        NotaHelper.gerarLote(nuNota);
+    }
+
 }
 
 

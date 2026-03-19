@@ -200,7 +200,7 @@ public class EventoEmailFinalizacaoOP implements EventoProgramavelJava {
                     filaVO.setProperty("MIMETYPE", "text/html");
                     filaVO.setProperty("TIPODOC", "N");
                     filaVO.setProperty("MAXTENTENVIO", BigDecimalUtil.valueOf(3));
-                    filaVO.setProperty("CODSMTP", memVO.asBigDecimal("CODSMTP"));
+                    //filaVO.setProperty("CODSMTP", memVO.asBigDecimal("CODSMTP"));
                     filaVO.setProperty("ASSUNTO", assunto);
                     filaVO.setProperty("MENSAGEM", msg.toCharArray());
                     filaVO.setProperty("CODUSUREMET", (usuRemet != null ? usuRemet : BigDecimal.ZERO));
