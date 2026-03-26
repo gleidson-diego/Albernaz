@@ -31,7 +31,7 @@ public class EventoDisparoEmailApontamento implements EventoProgramavelJava {
     private static final BigDecimal COD_RELATORIO_PADRAO = BigDecimal.valueOf(96);
 
     private static final String SQL_DADOS = "sql/dadosEmailAtividadeAceite.sql";
-    private static final String NOME_PDF = "fichaProduçãoOP.pdf";
+    private static final String NOME_PDF = "FICHAPRODUCAOOP.pdf";
 
     private static final ThreadLocal<Set<String>> DISPAROS_NA_THREAD =
             ThreadLocal.withInitial(HashSet::new);

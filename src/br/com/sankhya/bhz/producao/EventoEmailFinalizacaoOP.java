@@ -33,7 +33,7 @@ public class EventoEmailFinalizacaoOP implements EventoProgramavelJava {
 
 
     private static final String SQL_DADOS = "sql/dadosEmailAtividadeAceite.sql";
-    private static final String NOME_PDF = "fichaProduçãoOP.pdf";
+    private static final String NOME_PDF = "FICHAPRODUCAOOP.pdf";
 
 
     private static final String SQL_BUSCA_IDIATV_POR_IDIPROC =
