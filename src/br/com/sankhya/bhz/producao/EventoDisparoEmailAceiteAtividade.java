@@ -4,6 +4,7 @@ import br.com.sankhya.extensions.eventoprogramavel.EventoProgramavelJava;
 import br.com.sankhya.jape.EntityFacade;
 import br.com.sankhya.jape.dao.JdbcWrapper;
 import br.com.sankhya.jape.event.PersistenceEvent;
+import br.com.sankhya.jape.event.TransactionContext;
 import br.com.sankhya.jape.sql.NativeSql;
 import br.com.sankhya.jape.vo.DynamicVO;
 import br.com.sankhya.jape.vo.EntityVO;
@@ -37,26 +38,36 @@ public class EventoDisparoEmailAceiteAtividade implements EventoProgramavelJava 
     private static final ThreadLocal<Set<String>> DISPAROS_NA_THREAD =
             ThreadLocal.withInitial(HashSet::new);
 
-    @Override public void beforeInsert(PersistenceEvent event) throws Exception {}
+    @Override
+    public void beforeInsert(PersistenceEvent event) throws Exception { }
 
     @Override
     public void afterInsert(PersistenceEvent event) throws Exception {
-
         final DynamicVO newVO = (DynamicVO) event.getVo();
 
         final String tipo = newVO.asString("TIPO");
-        if (tipo == null || !"N".equalsIgnoreCase(tipo.trim())) return;
+        if (tipo == null || !"N".equalsIgnoreCase(tipo.trim())) {
+            return;
+        }
 
         final BigDecimal idiAtv = newVO.asBigDecimalOrZero("IDIATV");
-        if (idiAtv == null || idiAtv.compareTo(BigDecimal.ZERO) == 0) return;
+        if (idiAtv == null || idiAtv.compareTo(BigDecimal.ZERO) == 0) {
+            return;
+        }
 
         Timestamp dhInicio = newVO.asTimestamp("DHINICIO");
-        if (dhInicio == null) dhInicio = newVO.asTimestamp("DHFINAL");
-        if (dhInicio == null) dhInicio = TimeUtils.getNow();
+        if (dhInicio == null) {
+            dhInicio = newVO.asTimestamp("DHFINAL");
+        }
+        if (dhInicio == null) {
+            dhInicio = TimeUtils.getNow();
+        }
 
-        final String flagKey = "BHZ_EMAIL_TPREIATV_" + idiAtv + "_" + dhInicio.getTime();
+        final String flagKey = "BHZ_EMAIL_TPRIATV_" + idiAtv + "_" + dhInicio.getTime();
         Set<String> flags = DISPAROS_NA_THREAD.get();
-        if (flags.contains(flagKey)) return;
+        if (flags.contains(flagKey)) {
+            return;
+        }
         flags.add(flagKey);
 
         try {
@@ -66,16 +77,27 @@ public class EventoDisparoEmailAceiteAtividade implements EventoProgramavelJava 
             try {
                 Set<String> f = DISPAROS_NA_THREAD.get();
                 f.remove(flagKey);
-                if (f.isEmpty()) DISPAROS_NA_THREAD.remove();
-            } catch (Exception ignored) {}
+                if (f.isEmpty()) {
+                    DISPAROS_NA_THREAD.remove();
+                }
+            } catch (Exception ignored) { }
         }
     }
 
-    @Override public void beforeUpdate(PersistenceEvent event) throws Exception {}
-    @Override public void afterUpdate(PersistenceEvent event) throws Exception {}
-    @Override public void beforeDelete(PersistenceEvent event) throws Exception {}
-    @Override public void afterDelete(PersistenceEvent event) throws Exception {}
-    @Override public void beforeCommit(br.com.sankhya.jape.event.TransactionContext tranCtx) throws Exception {}
+    @Override
+    public void beforeUpdate(PersistenceEvent event) throws Exception { }
+
+    @Override
+    public void afterUpdate(PersistenceEvent event) throws Exception { }
+
+    @Override
+    public void beforeDelete(PersistenceEvent event) throws Exception { }
+
+    @Override
+    public void afterDelete(PersistenceEvent event) throws Exception { }
+
+    @Override
+    public void beforeCommit(TransactionContext tranCtx) throws Exception { }
 
     private void dispararEmailComAnexo(BigDecimal idiAtv, BigDecimal usuRemet) throws Exception {
 
@@ -87,7 +109,9 @@ public class EventoDisparoEmailAceiteAtividade implements EventoProgramavelJava 
         JdbcWrapper jdbc = dwfFacade.getJdbcWrapper();
 
         DynamicVO memVO = memDAO.findOne("CODMODELO = ?", COD_MODELO_EMAIL);
-        if (memVO == null) return;
+        if (memVO == null) {
+            return;
+        }
 
         BigDecimal codRelatorio = COD_RELATORIO_PADRAO;
         if (memVO.asBigDecimalOrZero("AD_CODREL").compareTo(BigDecimal.ZERO) != 0) {
@@ -95,6 +119,7 @@ public class EventoDisparoEmailAceiteAtividade implements EventoProgramavelJava 
         }
 
         ResultSet rs = null;
+
         try {
             jdbc.openSession();
 
@@ -107,7 +132,9 @@ public class EventoDisparoEmailAceiteAtividade implements EventoProgramavelJava 
             while (rs.next()) {
 
                 String emailsRaw = rs.getString("EMAIL");
-                if (emailsRaw == null || emailsRaw.trim().isEmpty()) continue;
+                if (emailsRaw == null || emailsRaw.trim().isEmpty()) {
+                    continue;
+                }
 
                 BigDecimal idiproc = rs.getBigDecimal("IDIPROC");
                 BigDecimal nunota = rs.getBigDecimal("NUNOTA");
@@ -115,21 +142,21 @@ public class EventoDisparoEmailAceiteAtividade implements EventoProgramavelJava 
                 BigDecimal qtdProduzir = rs.getBigDecimal("QTDPRODUZIR");
                 String descrAtv = rs.getString("DESCRICAO");
 
-                String idiprocStr = (idiproc != null ? idiproc.toString() : "");
-                String nunotaStr = (nunota != null ? nunota.toString() : "");
-                String descrStr = (descrProd != null ? descrProd : "");
-                String qtdStr = (qtdProduzir != null ? qtdProduzir.toString() : "");
-                String descrAtvStr = (descrAtv != null ? descrAtv : "");
+                String idiprocStr = idiproc != null ? idiproc.toString() : "";
+                String nunotaStr = nunota != null ? nunota.toString() : "";
+                String descrStr = descrProd != null ? descrProd : "";
+                String qtdStr = qtdProduzir != null ? qtdProduzir.toString() : "";
+                String descrAtvStr = descrAtv != null ? descrAtv : "";
 
-                // ASSUNTO: incrementa com IDIPROC + DESCRICAO (TPREFX)
                 String assunto = memVO.asString("ASSUNTO");
-                if (assunto == null) assunto = "";
+                if (assunto == null) {
+                    assunto = "";
+                }
                 assunto = assunto
                         .replace("&amp;", "&")
                         .replace(":IDIPROC", idiprocStr)
                         .replace(":DESCRICAO", descrAtvStr);
 
-                // CONTEÚDO: (SEM DESCRICAO) incrementa com IDIPROC + NUNOTA/DESCRPROD/QTDPRODUZIR
                 char[] conteudo = memVO.asClob("CONTEUDO");
                 String msg = conteudo != null ? new String(conteudo) : "";
                 msg = msg
@@ -139,18 +166,11 @@ public class EventoDisparoEmailAceiteAtividade implements EventoProgramavelJava 
                         .replace(":DESCRPROD", descrStr)
                         .replace(":QTDPRODUZIR", qtdStr);
 
-                // PDF do relatório - parâmetro IDIPROC
-                Report report = ReportManager.getInstance().getReport(codRelatorio, dwfFacade);
-                HashMap<String, Object> reportParams = new HashMap<>();
-                reportParams.put("IDIPROC", idiproc);
-
-                JasperPrint jasperPrint = report.buildJasperPrint(reportParams, jdbc.getConnection());
-                byte[] pdf = JasperExportManager.exportReportToPdf(jasperPrint);
-
                 String[] emails = emailsRaw.split(";");
                 for (String email : emails) {
-
-                    if (email == null || email.trim().isEmpty()) continue;
+                    if (email == null || email.trim().isEmpty()) {
+                        continue;
+                    }
 
                     DynamicVO filaVO = (DynamicVO) dwfFacade.getDefaultValueObjectInstance(DynamicEntityNames.FILA_MSG);
 
@@ -162,15 +182,24 @@ public class EventoDisparoEmailAceiteAtividade implements EventoProgramavelJava 
                     filaVO.setProperty("MIMETYPE", "text/html");
                     filaVO.setProperty("TIPODOC", "N");
                     filaVO.setProperty("MAXTENTENVIO", BigDecimalUtil.valueOf(3));
-                    //filaVO.setProperty("CODSMTP", memVO.asBigDecimal("CODSMTP"));
+                    // filaVO.setProperty("CODSMTP", memVO.asBigDecimal("CODSMTP"));
                     filaVO.setProperty("ASSUNTO", assunto);
                     filaVO.setProperty("MENSAGEM", msg.toCharArray());
-                    filaVO.setProperty("CODUSUREMET", (usuRemet != null ? usuRemet : BigDecimal.ZERO));
+                    filaVO.setProperty("CODUSUREMET", usuRemet != null ? usuRemet : BigDecimal.ZERO);
                     filaVO.setProperty("DTENTRADA", TimeUtils.getNow());
 
                     dwfFacade.createEntity(DynamicEntityNames.FILA_MSG, (EntityVO) filaVO);
-
                     BigDecimal codFila = filaVO.asBigDecimal("CODFILA");
+
+                    Report report = ReportManager.getInstance().getReport(codRelatorio, dwfFacade);
+
+                    HashMap<String, Object> reportParams = new HashMap<String, Object>();
+                    reportParams.put("IDIPROC", idiproc);
+                    reportParams.put("PK_IDIPROC", idiproc);
+                    reportParams.put("PDIR_MODELO", "/home/mgeweb/repositorio/impressao/");
+
+                    JasperPrint jasperPrint = report.buildJasperPrint(reportParams, jdbc.getConnection());
+                    byte[] pdf = JasperExportManager.exportReportToPdf(jasperPrint);
 
                     DynamicVO amgVO = amgDAO.create()
                             .set("TIPO", "application/pdf")
@@ -186,16 +215,33 @@ public class EventoDisparoEmailAceiteAtividade implements EventoProgramavelJava 
             }
 
         } finally {
-            try { if (rs != null) rs.close(); } catch (Exception ignored) {}
-            try { jdbc.closeSession(); } catch (Exception ignored) {}
+            try {
+                if (rs != null) {
+                    rs.close();
+                }
+            } catch (Exception ignored) { }
+            try {
+                jdbc.closeSession();
+            } catch (Exception ignored) { }
         }
     }
 
     private BigDecimal getUsuarioRemetente() {
         try {
             AuthenticationInfo ai = AuthenticationInfo.getCurrent();
-            if (ai != null && ai.getUserID() != null) return ai.getUserID();
-        } catch (Exception ignored) {}
+            if (ai != null && ai.getUserID() != null) {
+                return ai.getUserID();
+            }
+        } catch (Exception ignored) { }
         return BigDecimal.ZERO;
+    }
+
+    private String getPdirModelo() {
+        try {
+            String baseDir = System.getProperty("user.dir");
+            return baseDir != null ? baseDir : "";
+        } catch (Exception e) {
+            return "";
+        }
     }
 }
