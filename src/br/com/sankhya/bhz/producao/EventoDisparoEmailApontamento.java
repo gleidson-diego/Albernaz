@@ -147,6 +147,8 @@ public class EventoDisparoEmailApontamento implements EventoProgramavelJava {
                 Report report = ReportManager.getInstance().getReport(codRelatorio, dwfFacade);
                 HashMap<String, Object> reportParams = new HashMap<>();
                 reportParams.put("IDIPROC", idiproc);
+                reportParams.put("PK_IDIPROC", idiproc);
+                reportParams.put("PDIR_MODELO", "/home/mgeweb/repositorio/impressao/");
 
                 JasperPrint jasperPrint = report.buildJasperPrint(reportParams, jdbc.getConnection());
                 byte[] pdf = JasperExportManager.exportReportToPdf(jasperPrint);

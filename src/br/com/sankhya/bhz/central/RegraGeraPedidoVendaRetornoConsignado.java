@@ -24,6 +24,7 @@ import java.util.Map;
 public class RegraGeraPedidoVendaRetornoConsignado implements Regra {
 
     private static final BigDecimal TOP_PEDIDO_VENDA = BigDecimal.valueOf(55);
+    private static final BigDecimal TOP_RETORNO = BigDecimal.valueOf(102);
 
     private final JapeWrapper cabDAO = JapeFactory.dao(DynamicEntityNames.CABECALHO_NOTA);
     private final JapeWrapper iteDAO = JapeFactory.dao(DynamicEntityNames.ITEM_NOTA);
@@ -72,12 +73,14 @@ public class RegraGeraPedidoVendaRetornoConsignado implements Regra {
             return;
         }
 
-        if (!topOrigemGeraPedido(codTipOperRetorno)) {
+        // Mantém a regra restrita ao retorno
+        if (codTipOperRetorno == null || codTipOperRetorno.compareTo(TOP_RETORNO) != 0) {
             return;
         }
 
-        if (!existeItemConsignadoParaVenda(nuNotaRetorno)) {
-            throw new Exception("Nenhum produto será vendido?");
+        // Novo gatilho: existência de item com AD_QTDDEVOL > 0
+        if (!existeItemParaGerarPedido(nuNotaRetorno)) {
+            return;
         }
 
         DynamicVO cabPedidoVO = buscarPedidoAbertoMesmoParceiro(codParc);
@@ -98,20 +101,7 @@ public class RegraGeraPedidoVendaRetornoConsignado implements Regra {
     public void afterDelete(ContextoRegra ctx) throws Exception {
     }
 
-    private boolean topOrigemGeraPedido(BigDecimal codTipOper) throws Exception {
-        DynamicVO topVO = topDAO.findOne(
-                "CODTIPOPER = ? AND DHALTER = (SELECT MAX(T.DHALTER) FROM TGFTOP T WHERE T.CODTIPOPER = TGFTOP.CODTIPOPER)",
-                codTipOper
-        );
-
-        if (topVO == null) {
-            throw new Exception("Não foi possível localizar a TOP da nota de retorno.");
-        }
-
-        return "S".equalsIgnoreCase(topVO.asString("AD_GERPEDVENDA"));
-    }
-
-    private boolean existeItemConsignadoParaVenda(BigDecimal nuNotaRetorno) throws Exception {
+    private boolean existeItemParaGerarPedido(BigDecimal nuNotaRetorno) throws Exception {
         EntityFacade facade = EntityFacadeFactory.getDWFFacade();
         JdbcWrapper jdbc = facade.getJdbcWrapper();
         NativeSql sql = new NativeSql(jdbc);
@@ -119,22 +109,10 @@ public class RegraGeraPedidoVendaRetornoConsignado implements Regra {
 
         try {
             sql.appendSql(
-                    "SELECT COUNT(1) QTD " +
-                            "FROM ( " +
-                            "    SELECT ITE.CODPROD " +
-                            "    FROM TGFCAB CAB " +
-                            "    INNER JOIN TGFITE ITE ON CAB.NUNOTA = ITE.NUNOTA " +
-                            "    LEFT JOIN TGFVAR VAR ON VAR.NUNOTA = CAB.NUNOTA AND VAR.SEQUENCIA = ITE.SEQUENCIA " +
-                            "    WHERE CAB.CODTIPOPER = 102 " +
-                            "      AND CAB.NUNOTA IN ( " +
-                            "            SELECT DISTINCT V.NUNOTA " +
-                            "            FROM TGFCAB C " +
-                            "            INNER JOIN TGFVAR V ON V.NUNOTA = C.NUNOTA " +
-                            "            WHERE C.NUNOTA = :NUNOTA " +
-                            "      ) " +
-                            "      AND ITE.AD_CONSIGNADO = 'S' " +
-                            "    GROUP BY ITE.NUNOTA, ITE.SEQUENCIA, ITE.CODPROD, ITE.VLRUNIT, ITE.CODVOL, ITE.QTDNEG, ITE.CONTROLE, ITE.CODLOCALORIG " +
-                            ") X "
+                    "SELECT COUNT(1) AS QTD " +
+                            "  FROM TGFITE ITE " +
+                            " WHERE ITE.NUNOTA = :NUNOTA " +
+                            "   AND NVL(ITE.AD_QTDDEVOL, 0) > 0 "
             );
 
             sql.setNamedParameter("NUNOTA", nuNotaRetorno);
@@ -221,7 +199,7 @@ public class RegraGeraPedidoVendaRetornoConsignado implements Regra {
             while (rs.next()) {
                 BigDecimal codProd = rs.getBigDecimal("CODPROD");
                 BigDecimal vlrUnit = rs.getBigDecimal("VLRUNIT");
-                BigDecimal qtdNeg = rs.getBigDecimal("QTDRETORNO");
+                BigDecimal qtdNeg = rs.getBigDecimal("QTDNEG");
                 String codVol = rs.getString("CODVOL");
                 String controle = rs.getString("CONTROLE");
                 BigDecimal codLocalOrig = rs.getBigDecimal("CODLOCALORIG");
