@@ -23,8 +23,8 @@ import java.util.Map;
 
 public class RegraGeraPedidoVendaRetornoConsignado implements Regra {
 
-    private static final BigDecimal TOP_PEDIDO_VENDA = BigDecimal.valueOf(55);
-    private static final BigDecimal TOP_RETORNO = BigDecimal.valueOf(102);
+    private static final BigDecimal TOP_PEDIDO_VENDA = BigDecimal.valueOf(139);
+    private static final BigDecimal TOP_RETORNO = BigDecimal.valueOf(138);
 
     private final JapeWrapper cabDAO = JapeFactory.dao(DynamicEntityNames.CABECALHO_NOTA);
     private final JapeWrapper iteDAO = JapeFactory.dao(DynamicEntityNames.ITEM_NOTA);
