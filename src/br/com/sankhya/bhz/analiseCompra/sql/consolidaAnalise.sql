@@ -1,4 +1,5 @@
-INSERT INTO AD_BHZIMRP (TIPO
+INSERT INTO AD_BHZIMRP ( ORDEM
+                        ,TIPO
                         ,CODGRUPOPROD
                         ,CODPARC
                         ,CODEMP
@@ -14,6 +15,8 @@ INSERT INTO AD_BHZIMRP (TIPO
                         ,SEQIMRP
                         ,QTDPEND
                         ,QTDEST
+                        ,ESTOQUE
+                        ,RESERVA
                         ,SUGERIDO
                         ,ACUMULADO
                         ,USOPROD
@@ -23,7 +26,8 @@ INSERT INTO AD_BHZIMRP (TIPO
                         ,QTDAGRUP
                         ,CODUSU
                         ,AGRUPCOMPMINIMO)
-SELECT TIPO
+SELECT ORDEM
+    ,TIPO
     ,CODGRUPOPROD
     ,CODPARC
     ,CODEMP
@@ -39,6 +43,8 @@ SELECT TIPO
     ,SEQIMRP
     ,QTDPEND
     ,QTDEST
+    ,ESTOQUE
+    ,RESERVA
     ,SUGERIDO
     ,ACUMULADO
     ,USOPROD
@@ -49,4 +55,4 @@ SELECT TIPO
     ,CODUSU
     ,AGRUPCOMPMINIMO
 FROM AD_VWBHZIMRP
-ORDER BY CODEMP,CODPRODMP,LIMITECOMPRA
+ORDER BY ORDEM

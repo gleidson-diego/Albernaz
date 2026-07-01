@@ -35,7 +35,7 @@ public class consolidaAnalise implements AcaoRotinaJava {
         sqlINS.executeUpdate();
 
         NativeSql sql = new NativeSql(jdbc);
-        sql.appendSql("SELECT * FROM AD_BHZIMRP ORDER BY CODEMP, CODPRODMP, LIMITECOMPRA");
+        sql.appendSql("SELECT * FROM AD_BHZIMRP ORDER BY ORDEM");
         ResultSet resultSet = sql.executeQuery();
 
         BigDecimal acumulado = BigDecimal.ZERO;
@@ -44,6 +44,8 @@ public class consolidaAnalise implements AcaoRotinaJava {
         BigDecimal saldo = BigDecimal.ZERO;
         BigDecimal qtdPend = BigDecimal.ZERO;
         BigDecimal qtdEst = BigDecimal.ZERO;
+        BigDecimal qtdEstoque = BigDecimal.ZERO;
+
 
         while (resultSet.next()){
 
@@ -55,6 +57,7 @@ public class consolidaAnalise implements AcaoRotinaJava {
                 codprod = resultSet.getBigDecimal("CODPRODMP");
                 qtdPend = resultSet.getBigDecimal("QTDPEND");
                 qtdEst = resultSet.getBigDecimal("QTDEST");
+                qtdEstoque = resultSet.getBigDecimal("ESTOQUE");
 
                 saldo = resultSet.getBigDecimal("QTDNEG");
 
@@ -62,7 +65,8 @@ public class consolidaAnalise implements AcaoRotinaJava {
                         .add(qtdPend));
 
                 if(acumulado.compareTo(BigDecimal.ZERO)>0) {
-                    if(resultSet.getBigDecimal("ESTMIN").compareTo(BigDecimal.ZERO)>0){
+                    if("S".equals(resultSet.getString("TIPO"))
+                            && resultSet.getBigDecimal("ESTMIN").compareTo(BigDecimal.ZERO)>0){
                         BigDecimal estMin = resultSet.getBigDecimal("ESTMIN");
                         acumulado = acumulado.add(estMin);
                     }
@@ -83,6 +87,7 @@ public class consolidaAnalise implements AcaoRotinaJava {
 
             } else {
                 qtdEst = qtdEst.subtract(saldo).add(qtdPend).add(sugestao);
+                qtdEstoque = qtdEstoque.subtract(saldo).add(qtdPend).add(sugestao);
                 qtdPend = resultSet.getBigDecimal("QTDPEND").subtract(qtdPend);
 
                 saldo = resultSet.getBigDecimal("QTDNEG");
@@ -99,7 +104,8 @@ public class consolidaAnalise implements AcaoRotinaJava {
                 }
                 acumulado = acumulado.subtract(qtdPend).add(saldo);
 
-                if(acumulado.add(resultSet.getBigDecimal("ESTMIN")).compareTo(BigDecimal.ZERO)>0){
+                if("S".equals(resultSet.getString("TIPO"))
+                        && acumulado.add(resultSet.getBigDecimal("ESTMIN")).compareTo(BigDecimal.ZERO)>0){
                     acumulado = acumulado.add(resultSet.getBigDecimal("ESTMIN"));
                 }
             }
@@ -113,10 +119,12 @@ public class consolidaAnalise implements AcaoRotinaJava {
             sqlUPD.setNamedParameter("ACUMULADO",acumulado);
             sqlUPD.setNamedParameter("SUGERIDO",sugestao);
             sqlUPD.setNamedParameter("QTDEST",qtdEst);
+            sqlUPD.setNamedParameter("ESTOQUE",qtdEstoque);
             sqlUPD.setNamedParameter("QTDPEND",qtdPend);
             sqlUPD.setNamedParameter("CODPRODMP",resultSet.getBigDecimal("CODPRODMP"));
             sqlUPD.setNamedParameter("CODEMP",resultSet.getBigDecimal("CODEMP"));
             sqlUPD.setNamedParameter("NUMPS",resultSet.getBigDecimal("NUMPS"));
+            sqlUPD.setNamedParameter("SEQIMRP",resultSet.getBigDecimal("SEQIMRP"));
             sqlUPD.setNamedParameter("DTINI",resultSet.getTimestamp("DTINI"));
             sqlUPD.executeUpdate();
 

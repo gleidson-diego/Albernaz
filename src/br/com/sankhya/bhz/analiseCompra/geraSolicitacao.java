@@ -14,6 +14,7 @@ import br.com.sankhya.jape.sql.NativeSql;
 import br.com.sankhya.jape.vo.DynamicVO;
 import br.com.sankhya.jape.wrapper.JapeFactory;
 import br.com.sankhya.jape.wrapper.JapeWrapper;
+import br.com.sankhya.jape.wrapper.fluid.FluidCreateVO;
 import br.com.sankhya.modelcore.auth.AuthenticationInfo;
 import br.com.sankhya.modelcore.comercial.BarramentoRegra;
 import br.com.sankhya.modelcore.comercial.centrais.CACHelper;
@@ -24,14 +25,17 @@ import br.com.sankhya.modelcore.util.MGECoreParameter;
 import com.sankhya.util.TimeUtils;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 public class geraSolicitacao implements AcaoRotinaJava {
+    private final JapeWrapper varDAO = JapeFactory.dao("CompraVendavariosPedido");
 
     @Override
     public void doAction(ContextoAcao contextoAcao) throws Exception {
@@ -57,7 +61,28 @@ public class geraSolicitacao implements AcaoRotinaJava {
         DynamicVO vendVO = vendDAO.findOne("CODPARC = ? AND ATIVO = 'S'",usuVO.asBigDecimalOrZero("CODPARC"));
 
         String agrupa = contextoAcao.getParam("AGRUPA").toString();
-        BigDecimal codTipOper = new BigDecimal(contextoAcao.getParam("CODTIPOPER").toString());
+
+        Object codTipOperObj = contextoAcao.getParam("CODTIPOPER");
+        if (codTipOperObj == null) {
+            throw new Exception("Parâmetro de TOP não foi informado!");
+        }
+        BigDecimal codTipOper = new BigDecimal(codTipOperObj.toString());
+
+
+        Object codParcParamObj = contextoAcao.getParam("CODPARC");
+        BigDecimal codParcParam = null;
+
+        if (codParcParamObj != null && !codParcParamObj.toString().trim().isEmpty()) {
+            codParcParam = new BigDecimal(codParcParamObj.toString());
+        }
+
+
+        Object codLocalObj = contextoAcao.getParam("CODLOCAL");
+        if (codLocalObj == null) {
+            throw new Exception("Parâmetro de Local não foi informado!");
+        }
+        BigDecimal codLocal = new BigDecimal(codLocalObj.toString());
+
 
         DynamicVO topVO = topDAO.findOne("CODTIPOPER = ? AND DHALTER = (SELECT MAX(DHALTER) FROM TGFTOP TP WHERE TP.CODTIPOPER = TGFTOP.CODTIPOPER)",codTipOper);
 
@@ -83,7 +108,19 @@ public class geraSolicitacao implements AcaoRotinaJava {
 
         for (Registro linha : linhas) {
 
-            codParc = new BigDecimal(linha.getCampo("CODPARC").toString());
+            Object codParcObj = linha.getCampo("CODPARC");
+            if (codParcObj == null) {
+                throw new Exception("Parceiro está nulo!");
+            }
+            BigDecimal codParcLinha = new BigDecimal(codParcObj.toString());
+
+
+            if (codParcParam != null) {
+                codParc = codParcParam;
+            } else {
+                codParc = codParcLinha;
+            }
+
             codEmp = new BigDecimal(linha.getCampo("CODEMP").toString());
             dtPrevEnt =  (Timestamp) linha.getCampo("DTINI");
             DynamicVO parVO = parDAO.findOne("CODPARC = ?",codParc);
@@ -105,12 +142,35 @@ public class geraSolicitacao implements AcaoRotinaJava {
                 modeloNota = (BigDecimal) MGECoreParameter.getParameter("BHZ_MODSOLICITI");
             }
 
+            if (modeloNota == null) {
+                ErroUtils.disparaErro("Parâmetro do modelo de solicitação não configurado. Verifique o parâmetro "
+                        + ("EX".equals(uf) ? "BHZ_MODSOLICITI" : "BHZ_MODSOLICIT") + ".");
+            }
+
             DynamicVO modeloNotaVO = cabDAO.findOne("NUNOTA = ?", modeloNota);
 
-            cabVO = cabDAO.findOne("CODEMP = ? AND CODTIPOPER = ? AND CODPARC = ? AND STATUSNOTA != 'L' AND DTNEG = ? AND CODUSU = ? AND CAST(OBSERVACAO AS VARCHAR(1000)) = ?"
-                    ,codEmp,codTipOper,codParc,TimeUtils.getNow("dd/MM/yyyy"), codUsuario, obs);
+            if (modeloNotaVO == null) {
+                ErroUtils.disparaErro("Nota modelo de solicitação não encontrada. Verifique o parâmetro "
+                        + ("EX".equals(uf) ? "BHZ_MODSOLICITI" : "BHZ_MODSOLICIT") + ": " + modeloNota + ".");
+            }
 
-            if (cabVO == null) {
+//            System.out.println("codEmp=" + codEmp);
+//            System.out.println("codTipOper=" + codTipOper);
+//            System.out.println("codParc=" + codParc);
+//            System.out.println("codUsuario=" + codUsuario);
+//            System.out.println("obs=" + obs);
+
+
+            BigDecimal qtdNeg = new BigDecimal (linha.getCampo("SUGERIDO").toString());
+
+            if (qtdNeg.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            cabVO = cabDAO.findOne("CODEMP = ? AND CODTIPOPER = ? AND CODPARC = ? AND STATUSNOTA != 'L' AND TRUNC(DTNEG) = TRUNC(?) AND CODUSU = ? AND CAST(OBSERVACAO AS VARCHAR(1000)) = ?"
+                    ,codEmp,codTipOper,codParc,TimeUtils.getNow(), codUsuario, obs);
+
+            if (cabVO == null)  {
                 Map<String, Object> nota = new HashMap<>();
 
                 nota.put("STATUSNOTA", "A");
@@ -144,8 +204,6 @@ public class geraSolicitacao implements AcaoRotinaJava {
                 nota.put("DTMOV", TimeUtils.getNow());
 
                 cabVO = duplicarRegistro.duplicaRegistroVO(modeloNotaVO, DynamicEntityNames.CABECALHO_NOTA, nota);
-
-                nuNotas.add(cabVO.asBigDecimal("NUNOTA"));
             }
 
             if (cabVO.asTimestamp("DTPREVENT") != null && dtPrevEnt.before(cabVO.asTimestamp("DTPREVENT"))) {
@@ -154,7 +212,6 @@ public class geraSolicitacao implements AcaoRotinaJava {
                         .update();
             }
 
-            BigDecimal qtdNeg = new BigDecimal (linha.getCampo("SUGERIDO").toString());
 
             /*BUSCA CUSTO*/
             NativeSql sql = new NativeSql(jdbc);
@@ -182,7 +239,9 @@ public class geraSolicitacao implements AcaoRotinaJava {
 
             if (iteVO == null && qtdNeg.compareTo(BigDecimal.ZERO)>0) {
                 DynamicVO proVO = proDAO.findOne("CODPROD = ?",linha.getCampo("CODPRODMP"));
-                iteDAO.create()
+                String tipo = String.valueOf(linha.getCampo("TIPO"));
+
+                DynamicVO novoItem = iteDAO.create()
                         .set("CODPROD", linha.getCampo("CODPRODMP"))
                         .set("CONTROLE", linha.getCampo("CONTROLEMP"))
                         .set("QTDNEG", qtdNeg)
@@ -194,13 +253,31 @@ public class geraSolicitacao implements AcaoRotinaJava {
                         .set("VLRTOTMOE",operMoeda.equals("S") ? qtdNeg.multiply(custo) : BigDecimal.ZERO)
                         .set("NUNOTA", cabVO.asBigDecimal("NUNOTA"))
                         .set("USOPROD", proVO.asString("USOPROD"))
-                        .set("CODLOCALORIG", proVO.asBigDecimalOrZero("CODLOCALPADRAO"))
+                        .set("CODLOCALORIG", codLocal)
                         .set("ATUALESTOQUE", BigDecimal.ZERO)
                         .set("CODVOL", proVO.asString("CODVOL"))
                         .set("DTINICIO", linha.getCampo("DTINI"))
                         .save();
 
+                  if ("S".equals(tipo)
+                        && linha.getCampo("NUMPS") != null
+                        && linha.getCampo("SEQIMRP") != null){
+
+                    gerarVarSeNecessario(
+                            cabVO.asBigDecimal("NUNOTA"),                  // NUNOTA destino (pedido)
+                            novoItem.asBigDecimal("SEQUENCIA"),            // SEQUENCIA destino
+                            linha.getCampo("NUMPS") != null
+                                    ? new BigDecimal(linha.getCampo("NUMPS").toString())
+                                    : null,                                  // NUNOTA origem
+                            linha.getCampo("SEQIMRP") != null
+                                    ? new BigDecimal(linha.getCampo("SEQIMRP").toString())
+                                    : null,                                  // SEQUENCIA origem
+                            new BigDecimal (linha.getCampo("SUGERIDO").toString())   // QTDATENDIDA
+                    );
+                 }
+
                 validaIns = true;
+                adicionarNuNota(nuNotas, cabVO.asBigDecimal("NUNOTA"));
             } else {
                 if (iteVO != null && iteVO.asBigDecimal("QTDNEG").compareTo(qtdNeg)<0){
                     iteDAO.prepareToUpdate(iteVO)
@@ -208,12 +285,13 @@ public class geraSolicitacao implements AcaoRotinaJava {
                             .set("VLRTOT",qtdNeg.multiply(custo))
                             .update();
                     validaIns = true;
+                    adicionarNuNota(nuNotas, cabVO.asBigDecimal("NUNOTA"));
                 }
             }
         }
 
         if (validaIns) {
-            msgRetorno = "Pedidos inseridos/atualizados. ".concat(cabVO.asBigDecimalOrZero("NUNOTA").toString());
+            msgRetorno = gerarMensagemRetorno(nuNotas, topVO.asString("TIPMOV"));
         } else {
             ErroUtils.disparaErro("Nenhum item selecionado tem qtd. sugerida!!!");
         }
@@ -231,4 +309,93 @@ public class geraSolicitacao implements AcaoRotinaJava {
 //            ConfirmacaoNotaHelper.confirmarNota(nuNota, bRegras, false);
         }
     }
+
+    private void adicionarNuNota(Collection<BigDecimal> nuNotas, BigDecimal nuNota) {
+        if (nuNota != null && !nuNotas.contains(nuNota)) {
+            nuNotas.add(nuNota);
+        }
+    }
+
+    private String gerarMensagemRetorno(Collection<BigDecimal> nuNotas, String tipMov) {
+        StringBuilder mensagem = new StringBuilder();
+
+        mensagem.append("<div style=\"text-align: center; padding-top: 7px;\">");
+        mensagem.append("Pedidos inseridos com sucesso.<br><br>");
+
+        if (nuNotas.size() == 1) {
+            BigDecimal nuNota = nuNotas.iterator().next();
+            mensagem.append("Numero unico gerado: ");
+            mensagem.append(gerarLinkCentralNotas(nuNota, tipMov));
+        } else {
+            mensagem.append("Numeros unicos gerados:<br>");
+
+            for (BigDecimal nuNota : nuNotas) {
+                mensagem.append(gerarLinkCentralNotas(nuNota, tipMov));
+                mensagem.append("<br>");
+            }
+        }
+
+        mensagem.append("</div>");
+
+        return mensagem.toString();
+    }
+
+    private String gerarLinkCentralNotas(BigDecimal nuNota, String tipMov) {
+        String urlCentral = gerarUrlCentralNotas(nuNota, tipMov);
+        return "<a id=\"alink\" href=\"" + urlCentral + "\" target=\"_top\" style=\"font-weight: bold;\">" + nuNota + "</a>";
+    }
+
+    private String gerarUrlCentralNotas(BigDecimal nuNota, String tipMov) {
+        String classeCentral = toBase64("br.com.sankhya.com.mov.CentralNotas");
+        String parametros = "{\"NUNOTA\":" + nuNota
+                + ", \"TIPMOV\":\"" + tipMov + "\""
+                + ", \"ehPedidoW\":false"
+                + ", \"forceNewHash\":" + System.currentTimeMillis()
+                + "}";
+
+        return "/mge/system.jsp#app/" + classeCentral + "/" + toBase64(parametros) + "&pk-refresh=" + System.currentTimeMillis();
+    }
+
+    private String toBase64(String texto) {
+        return Base64.getEncoder().encodeToString(texto.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private void gerarVarSeNecessario(BigDecimal nuNotaPedido,
+                                      BigDecimal sequenciaPedido,
+                                      BigDecimal nuNotaRetorno,
+                                      BigDecimal sequenciaOrig,
+                                      BigDecimal qtdAtendida) throws Exception {
+
+        DynamicVO varExistente = varDAO.findOne(
+                "NUNOTA = ? AND SEQUENCIA = ? AND NUNOTAORIG = ? AND SEQUENCIAORIG = ?",
+                nuNotaPedido, sequenciaPedido, nuNotaRetorno, sequenciaOrig
+        );
+
+        if (varExistente != null) {
+            BigDecimal qtdAtual = varExistente.asBigDecimalOrZero("QTDATENDIDA");
+
+            varDAO.prepareToUpdate(varExistente)
+                    .set("QTDATENDIDA", qtdAtual.add(qtdAtendida))
+                    .set("STATUSNOTA", "A")
+                    .update();
+            return;
+        }
+
+        FluidCreateVO varVO = varDAO.create();
+        varVO.set("NUNOTA", nuNotaPedido);
+        varVO.set("SEQUENCIA", sequenciaPedido);
+        varVO.set("NUNOTAORIG", nuNotaRetorno);
+        varVO.set("SEQUENCIAORIG", sequenciaOrig);
+        varVO.set("QTDATENDIDA", qtdAtendida);
+        varVO.set("STATUSNOTA", "A");
+        varVO.set("CUSATEND", null);
+        varVO.set("FIXACAO", null);
+        varVO.set("NROATOCONCDRAW", null);
+        varVO.set("NROMEMORANDO", null);
+        varVO.set("NROREGEXPORT", null);
+        varVO.set("ORDEMPROD", null);
+        varVO.save();
+    }
+
 }
+
