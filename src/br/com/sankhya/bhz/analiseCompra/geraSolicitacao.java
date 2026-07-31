@@ -304,6 +304,8 @@ public class geraSolicitacao implements AcaoRotinaJava {
         for(BigDecimal nuNota : nuNotas){
             ImpostosHelpper impHelper = new ImpostosHelpper();
             BarramentoRegra bRegras = BarramentoRegra.build(CACHelper.class, "regrasConfirmacaoCAC.xml", AuthenticationInfo.getCurrent());
+            impHelper.setForcarRecalculo(true);
+            impHelper.calcularImpostos(nuNota);
             impHelper.totalizarNota(nuNota);
             impHelper.salvarNota();
 //            ConfirmacaoNotaHelper.confirmarNota(nuNota, bRegras, false);

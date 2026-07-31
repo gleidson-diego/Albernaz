@@ -25,7 +25,13 @@ INSERT INTO AD_BHZIMRP ( ORDEM
                         ,ESTMAX
                         ,QTDAGRUP
                         ,CODUSU
-                        ,AGRUPCOMPMINIMO)
+                        ,AGRUPCOMPMINIMO
+                        ,REFFORN
+                        ,REFERENCIA
+                        ,VENDA_3M
+                        ,VENDA_6M
+                        ,ULTIMA_VENDA
+                        ,ULTIMO_CUSGER)
 SELECT ORDEM
     ,TIPO
     ,CODGRUPOPROD
@@ -54,5 +60,11 @@ SELECT ORDEM
     ,QTDAGRUP
     ,CODUSU
     ,AGRUPCOMPMINIMO
+    ,REFFORN
+    ,REFERENCIA
+    ,VENDA_3M
+    ,VENDA_6M
+    ,ULTIMA_VENDA
+    ,ULTIMO_CUSGER
 FROM AD_VWBHZIMRP
 ORDER BY ORDEM

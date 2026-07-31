@@ -54,6 +54,59 @@ BY
     TGFCAB.DTPREVENT))
 
 ,
+    VENDAS AS (
+        SELECT
+            ITE.CODPROD,
+            CAB.CODEMP,
+            SUM(CASE
+                    WHEN CAB.DTNEG >= ADD_MONTHS(TRUNC(SYSDATE), -3)
+                    THEN NVL(ITE.QTDNEG, 0)
+                    ELSE 0
+                END) AS VENDA_3M,
+            SUM(NVL(ITE.QTDNEG, 0)) AS VENDA_6M
+        FROM TGFCAB CAB
+        INNER JOIN TGFITE ITE
+            ON ITE.NUNOTA = CAB.NUNOTA
+        WHERE CAB.TIPMOV = 'V'
+          AND CAB.STATUSNOTA = 'L'
+          AND CAB.DTNEG >= ADD_MONTHS(TRUNC(SYSDATE), -6)
+          AND CAB.DTNEG < TRUNC(SYSDATE) + 1
+        GROUP BY
+            ITE.CODPROD,
+            CAB.CODEMP
+    )
+
+,
+    ULTIMA_VENDA AS (
+        SELECT
+            ITE.CODPROD,
+            CAB.CODEMP,
+            MAX(CAB.DTNEG) AS ULTIMA_VENDA
+        FROM TGFCAB CAB
+        INNER JOIN TGFITE ITE
+            ON ITE.NUNOTA = CAB.NUNOTA
+        WHERE CAB.TIPMOV = 'V'
+          AND CAB.STATUSNOTA = 'L'
+        GROUP BY
+            ITE.CODPROD,
+            CAB.CODEMP
+    )
+
+,
+    ULTIMO_CUSTO AS (
+        SELECT
+            CUS.CODPROD,
+            CUS.CODEMP,
+            MAX(NVL(CUS.CUSGER, 0))
+                KEEP (DENSE_RANK LAST ORDER BY CUS.DTATUAL) AS ULTIMO_CUSGER
+        FROM TGFCUS CUS
+        WHERE CUS.DTATUAL <= SYSDATE
+        GROUP BY
+            CUS.CODPROD,
+            CUS.CODEMP
+    )
+
+,
     CONSUMO AS (
         SELECT
             MPS.NUMPS,
@@ -402,6 +455,18 @@ FROM
         GRU.CODGRUPOPROD
 			,
         GRU.CODGRUPAI
+            ,
+        PRO.REFFORN
+            ,
+        PRO.REFERENCIA
+            ,
+        NVL(VEN.VENDA_3M, 0) VENDA_3M
+            ,
+        NVL(VEN.VENDA_6M, 0) VENDA_6M
+            ,
+        UV.ULTIMA_VENDA
+            ,
+        NVL(UC.ULTIMO_CUSGER, 0) ULTIMO_CUSGER
 			,
         NVL(PAR.CODPARC,
         0) CODPARC
@@ -470,6 +535,21 @@ FROM
     JOIN
         TGFGRU GRU
             ON PRO.CODGRUPOPROD = GRU.CODGRUPOPROD
+        LEFT
+    JOIN
+        VENDAS VEN
+            ON VEN.CODPROD = PRO.CODPROD
+            AND VEN.CODEMP = PLANO.CODEMP
+        LEFT
+    JOIN
+        ULTIMA_VENDA UV
+            ON UV.CODPROD = PRO.CODPROD
+            AND UV.CODEMP = PLANO.CODEMP
+        LEFT
+    JOIN
+        ULTIMO_CUSTO UC
+            ON UC.CODPROD = PRO.CODPROD
+            AND UC.CODEMP = PLANO.CODEMP
 		LEFT
     JOIN
         TGFPAR PAR
@@ -497,6 +577,18 @@ FROM
         GRU.CODGRUPOPROD
 			,
         GRU.CODGRUPAI
+            ,
+        PRO.REFFORN
+            ,
+        PRO.REFERENCIA
+            ,
+        NVL(VEN.VENDA_3M, 0)
+            ,
+        NVL(VEN.VENDA_6M, 0)
+            ,
+        UV.ULTIMA_VENDA
+            ,
+        NVL(UC.ULTIMO_CUSGER, 0)
 			,
         NVL(PAR.CODPARC,
         0)
@@ -556,6 +648,18 @@ SELECT
 	,
     CODGRUPOPROD
 	,
+    REFFORN
+    ,
+    REFERENCIA
+    ,
+    VENDA_3M
+    ,
+    VENDA_6M
+    ,
+    ULTIMA_VENDA
+    ,
+    ULTIMO_CUSGER
+    ,
     CODPARC
 	,
     CODEMP
